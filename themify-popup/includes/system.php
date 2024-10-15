@@ -166,9 +166,12 @@ class Themify_Popup {
 	public static function render() {
 
 		/* disable popups on these post types and when Themify Builder editor is on */
-		if (is_singular(array('tbp_template', 'tbuilder_layout_part', 'tglobal_style', ))) {
+		if ( is_singular(array('tbp_template', 'tbuilder_layout_part', 'tglobal_style', )) ) {
 			return;
 		}
+        if ( method_exists( 'Themify_Builder_Model', 'is_front_builder_activate' ) && Themify_Builder_Model::is_front_builder_activate() ) {
+            return;
+        }
 
 		$popups = self::get_popups();
 		/* add the page view counter cookie? */
