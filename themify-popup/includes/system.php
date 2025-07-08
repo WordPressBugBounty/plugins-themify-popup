@@ -332,7 +332,7 @@ class Themify_Popup {
                     $cl=esc_attr(trim($cl));
                     $cl=' '.$cl;
                 }
-		$html = '<a href="#themify-popup-' . $atts['link'] . '" class="tf_popup'. $cl . '"';
+		$html = '<a href="#themify-popup-' . esc_attr($atts['link']) . '" class="tf_popup'. $cl . '"';
                 unset($cl);
 		if ( $atts['color']!=='' || $atts['text']!=='' ) {
                     if ( $atts['color']!=='' ) {

@@ -2,7 +2,7 @@
 /*
 Plugin Name:  Themify Popup
 Plugin URI:   https://themify.me/popup
-Version:      1.4.2 
+Version:      1.4.3 
 Author:       Themify
 Description:  A free plugin to display popups for ads, newsletter subscriptions, and general info. It comes with various popup styles (classic, slide-out, fullscreen, etc.). Popups can be scheduled and configured to show on certain posts, pages, categories, and user roles.
 Text Domain:  themify-popup
@@ -12,7 +12,7 @@ Compatibility: 5.0.0
 */
 
 defined( 'ABSPATH' ) or die( '-1' );
-const THEMIFY_POPUP_VERSION='1.4.2';
+const THEMIFY_POPUP_VERSION='1.4.3';
 /**
  * Bootstrap Popup plugin
  *
