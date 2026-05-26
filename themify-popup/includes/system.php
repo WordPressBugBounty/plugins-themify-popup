@@ -270,8 +270,35 @@ class Themify_Popup {
 		if(function_exists('themify_make_lazy')){ // lazy load images inside popups
 			$content=themify_make_lazy($content,false);
 		}
+		$content = self::prepare_scripts( $content );
 
 		echo $content;
+	}
+
+	/**
+	 * Prevent popup-embedded scripts from executing while the popup is hidden.
+	 */
+	protected static function prepare_scripts( $content ) {
+		if ( false === stripos( $content, '<script' ) ) {
+			return $content;
+		}
+
+		return preg_replace_callback( '#<script\b([^>]*)>(.*?)</script>#is', static function( $matches ) {
+			$attrs = $matches[1];
+			$type = '';
+
+			if ( preg_match( '#\stype\s*=\s*([\"\']?)([^\"\'\s>]+)\1#i', $attrs, $type_match ) ) {
+				$type = strtolower( $type_match[2] );
+				if ( in_array( $type, array( 'application/ld+json', 'application/json', 'text/html', 'text/template', 'text/x-template' ), true ) ) {
+					return $matches[0];
+				}
+				$attrs = preg_replace( '#\stype\s*=\s*([\"\']?)[^\"\'\s>]+\1#i', '', $attrs );
+			}
+
+			$type_attr = '' !== $type && ! in_array( $type, array( 'text/javascript', 'application/javascript' ), true ) ? ' data-tf-popup-script-type="' . esc_attr( $type ) . '"' : '';
+
+			return '<script type="text/tf-popup-script"' . $type_attr . $attrs . '>' . $matches[2] . '</script>';
+		}, $content );
 	}
 
 	public static function themify_builder_row_classes( $row_classes, $row, $builder_id ) {
