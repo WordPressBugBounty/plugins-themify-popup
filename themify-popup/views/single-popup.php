@@ -11,7 +11,7 @@
 	<?php wp_head(); ?>
 </head>
 
-<body <?php body_class(); ?> style="background:#fff;width:<?php echo themify_popup_get( 'popup_width' ), themify_popup_get( 'popup_width_unit', 'px' ); ?>;min-height:<?php echo themify_popup_get( 'popup_height' ) , themify_popup_get( 'popup_height_unit', 'px' ); ?>;margin:auto" id="themify-popup-<?php the_id(); ?>">
+<body <?php body_class(); ?> style="background:#fff;width:<?php echo esc_attr( themify_popup_get( 'popup_width' ) . themify_popup_get( 'popup_width_unit', 'px' ) ); ?>;min-height:<?php echo esc_attr( themify_popup_get( 'popup_height' ) . themify_popup_get( 'popup_height_unit', 'px' ) ); ?>;margin:auto" id="themify-popup-<?php the_id(); ?>">
 
 	<?php if( have_posts() ) : while( have_posts() ) : the_post(); ?>
 		<?php the_content(); ?>

@@ -3,8 +3,8 @@ Contributors: themifyme
 Plugin Name: Themify Popup
 Tags: popup, modal, lightbox, marketing, notification
 Requires at least: 4.5
-Tested up to: 7.0.0
-Stable tag: 1.4.5
+Tested up to: 7.0.2
+Stable tag: 1.4.6
 License: GPL v2
 License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 

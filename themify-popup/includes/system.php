@@ -196,7 +196,7 @@ class Themify_Popup {
 			return;
 		}
 
-		self::enqueue();
+		self::enqueue( self::get_compat_scripts( $popups ) );
 
 		do_action( 'themify_popup_before_render' );
 
@@ -213,15 +213,61 @@ class Themify_Popup {
 			'assets' => THEMIFY_POPUP_URI . 'assets',
 			'count_views' => $count_views
 		) );
+		wp_register_script( 'themify-popup-hubspot-compat', THEMIFY_POPUP_URI . 'assets/compat/hubspot-compat.js', array( 'themify-popup' ), THEMIFY_POPUP_VERSION, true );
 
 		wp_register_style( 'themify-builder-animate', THEMIFY_POPUP_URI . 'assets/animate.min.css',null,'3.6.2' );
 		wp_register_style( 'magnific', THEMIFY_POPUP_URI . 'assets/lightbox.css',null,THEMIFY_POPUP_VERSION );
 		wp_register_style( 'themify-popup', THEMIFY_POPUP_URI . 'assets/styles.css', array( 'themify-builder-animate', 'magnific' ), THEMIFY_POPUP_VERSION );
 	}
 
-	protected static function enqueue() {
+	protected static function enqueue( $compat_scripts = array() ) {
 		wp_enqueue_script( 'themify-popup' );
 		wp_enqueue_style( 'themify-popup' );
+		foreach ( $compat_scripts as $handle ) {
+			wp_enqueue_script( $handle );
+		}
+	}
+
+	/**
+	 * Return popup post content and builder data for compat detection.
+	 */
+	protected static function get_popup_raw_content( $post ) {
+		$content = $post->post_content;
+		$builder_data = get_post_meta( $post->ID, '_themify_builder_settings_json', true );
+		if ( is_string( $builder_data ) && '' !== $builder_data ) {
+			$content .= $builder_data;
+		}
+		return apply_filters( 'themify_popup_raw_content', $content, $post );
+	}
+
+	/**
+	 * Detect HubSpot forms embedded in a popup.
+	 */
+	protected static function popup_has_hubspot( $post ) {
+		$content = self::get_popup_raw_content( $post );
+		return (
+			false !== stripos( $content, 'hs-form-frame' )
+			|| false !== stripos( $content, 'hbspt-form' )
+			|| false !== stripos( $content, 'hsforms.net' )
+			|| false !== stripos( $content, 'hbspt.forms' )
+			|| false !== stripos( $content, '[hubspot' )
+		);
+	}
+
+	/**
+	 * Register compat scripts to load based on popup content.
+	 *
+	 * @return array Script handles keyed by compat id.
+	 */
+	protected static function get_compat_scripts( $popups ) {
+		$compat = array();
+		foreach ( $popups as $popup ) {
+			if ( self::popup_has_hubspot( $popup ) ) {
+				$compat['hubspot'] = 'themify-popup-hubspot-compat';
+				break;
+			}
+		}
+		return apply_filters( 'themify_popup_compat_scripts', $compat, $popups );
 	}
 
 	/**
@@ -484,5 +530,11 @@ function themify_popup_get( $var, $default = null,$id=null ) {
  * @return string
  */
 function themify_popup_get_custom_css() {
-	return str_replace( '%POPUP%', '#themify-popup-' . get_the_id(), themify_popup_get( 'custom_css', '' ) );
+	$css = str_replace( '%POPUP%', '#themify-popup-' . get_the_id(), themify_popup_get( 'custom_css', '' ) );
+	if ( function_exists( 'themify_sanitize_builder_custom_css' ) ) {
+		return themify_sanitize_builder_custom_css( $css );
+	}
+	$css = preg_replace( '/<\/style/i', '', $css );
+	$css = preg_replace( '/<script/i', '', $css );
+	return $css;
 }

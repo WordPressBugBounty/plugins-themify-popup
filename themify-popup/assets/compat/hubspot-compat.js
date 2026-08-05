@@ -1,0 +1,1 @@
+(s=>{"use strict";const o=s=>{s.detail&&s.detail.popup&&(s=>{const o=s.querySelectorAll(".hs-form-frame,.hbspt-form");for(let s=o.length-1;s>-1;--s)o[s].replaceWith(o[s].cloneNode(!1))})(s.detail.popup)};s.addEventListener("tf_popup_before_load_scripts",o,{passive:!0}),s.addEventListener("tf_popup_close",o,{passive:!0})})(window);
