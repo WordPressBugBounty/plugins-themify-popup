@@ -69,6 +69,12 @@ foreach ( $popups as $post ): setup_postdata( $post );
 
 	?>
 	<div<?php echo self::get_element_attributes( $atts ); ?>>
+		<?php if ( self::show_edit_link( $id ) ) :
+			$edit_url = get_edit_post_link( $id );
+			if ( $edit_url ) : ?>
+				<div class="themify-popup-edit-link"><a href="<?php echo esc_url( $edit_url ); ?>" target="_blank" rel="noopener noreferrer"><?php echo wp_kses( __( 'Edit <span>Popup</span>', 'themify-popup' ), array( 'span' => array() ) ); ?></a></div>
+			<?php endif;
+		endif; ?>
 		<?php self::the_content(); ?>
 	</div>
 	<?php

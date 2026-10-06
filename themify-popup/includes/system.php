@@ -163,6 +163,26 @@ class Themify_Popup {
 		return '';
 	}
 
+	/**
+	 * Frontend "Edit Popup" link for users who can edit the popup.
+	 *
+	 * @param int $post_id
+	 * @return bool
+	 */
+	public static function show_edit_link( $post_id ) {
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return false;
+		}
+		if ( class_exists( 'Themify_Builder_Model', false ) ) {
+			if ( Themify_Builder_Model::is_front_builder_activate()
+				|| ( isset( $_REQUEST['action'] ) && in_array( $_REQUEST['action'], array( 'tb_render_element', 'tb_load_module_partial', 'tb_render_element_shortcode', 'render_element_shortcode_ajaxify' ), true ) )
+			) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	public static function render() {
 
 		/* disable popups on these post types and when Themify Builder editor is on */
@@ -196,7 +216,15 @@ class Themify_Popup {
 			return;
 		}
 
-		self::enqueue( self::get_compat_scripts( $popups ) );
+		$load_admin_css = false;
+		foreach ( $popups as $popup ) {
+			if ( self::show_edit_link( $popup->ID ) ) {
+				$load_admin_css = true;
+				break;
+			}
+		}
+
+		self::enqueue( self::get_compat_scripts( $popups ), $load_admin_css );
 
 		do_action( 'themify_popup_before_render' );
 
@@ -218,11 +246,15 @@ class Themify_Popup {
 		wp_register_style( 'themify-builder-animate', THEMIFY_POPUP_URI . 'assets/animate.min.css',null,'3.6.2' );
 		wp_register_style( 'magnific', THEMIFY_POPUP_URI . 'assets/lightbox.css',null,THEMIFY_POPUP_VERSION );
 		wp_register_style( 'themify-popup', THEMIFY_POPUP_URI . 'assets/styles.css', array( 'themify-builder-animate', 'magnific' ), THEMIFY_POPUP_VERSION );
+		wp_register_style( 'themify-popup-admin', THEMIFY_POPUP_URI . 'assets/admin.css', array( 'themify-popup' ), THEMIFY_POPUP_VERSION );
 	}
 
-	protected static function enqueue( $compat_scripts = array() ) {
+	protected static function enqueue( $compat_scripts = array(), $load_admin_css = false ) {
 		wp_enqueue_script( 'themify-popup' );
 		wp_enqueue_style( 'themify-popup' );
+		if ( $load_admin_css ) {
+			wp_enqueue_style( 'themify-popup-admin' );
+		}
 		foreach ( $compat_scripts as $handle ) {
 			wp_enqueue_script( $handle );
 		}
@@ -332,6 +364,10 @@ class Themify_Popup {
 		return preg_replace_callback( '#<script\b([^>]*)>(.*?)</script>#is', static function( $matches ) {
 			$attrs = $matches[1];
 			$type = '';
+
+			if ( preg_match( '/\bnfForms\s*(?:\|\||\.push\s*\()/', $matches[2] ) ) {
+				return $matches[0];
+			}
 
 			if ( preg_match( '#\stype\s*=\s*([\"\']?)([^\"\'\s>]+)\1#i', $attrs, $type_match ) ) {
 				$type = strtolower( $type_match[2] );
