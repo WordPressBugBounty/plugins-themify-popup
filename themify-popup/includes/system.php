@@ -5,6 +5,8 @@ class Themify_Popup {
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'i18n' ), 5 );
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
+		add_action( 'admin_init', array( __CLASS__, 'cleanup_stored_css_meta' ) );
+		add_action( 'save_post_themify_popup', array( __CLASS__, 'sanitize_saved_meta' ), PHP_INT_MAX );
 		add_action( 'wp_loaded', array( __CLASS__, 'loaded' ) );
 		if ( is_admin() ) {
 			add_filter( 'themify_exclude_cpt_post_options', array( __CLASS__, 'exclude_post_options' ) );
@@ -532,6 +534,85 @@ class Themify_Popup {
 	    $types[] = 'themify_popup';
 	    return $types;
     }
+
+	/**
+	 * Drop CSS meta that is not a length, unit, or color.
+	 * Runs after the metabox save so already-stored payloads are removed on update.
+	 *
+	 * @param int $post_id Popup ID.
+	 */
+	public static function sanitize_saved_meta( $post_id ) {
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+			return;
+		}
+
+		$units = array(
+			'popup_width_unit' => array( 'px', '%', 'em' ),
+			'popup_height_unit' => array( 'px', '%' ),
+		);
+		foreach ( $units as $key => $allowed ) {
+			$value = get_post_meta( $post_id, $key, true );
+			if ( ! is_string( $value ) || '' === $value ) {
+				if ( ! is_string( $value ) && '' !== $value && false !== $value ) {
+					delete_post_meta( $post_id, $key );
+				}
+				continue;
+			}
+			if ( '' === themify_popup_css_unit( $value, $allowed ) ) {
+				delete_post_meta( $post_id, $key );
+			}
+		}
+
+		foreach ( array( 'popup_width', 'popup_height' ) as $key ) {
+			$value = get_post_meta( $post_id, $key, true );
+			if ( ! is_string( $value ) || '' === $value ) {
+				if ( ! is_string( $value ) && '' !== $value && false !== $value ) {
+					delete_post_meta( $post_id, $key );
+				}
+				continue;
+			}
+			$number = themify_popup_css_number( $value );
+			if ( '' === $number ) {
+				delete_post_meta( $post_id, $key );
+			} elseif ( $number !== $value ) {
+				update_post_meta( $post_id, $key, $number );
+			}
+		}
+
+		$color = get_post_meta( $post_id, 'popup_overlay_color', true );
+		if ( ! is_string( $color ) || '' === $color ) {
+			if ( ! is_string( $color ) && '' !== $color && false !== $color ) {
+				delete_post_meta( $post_id, 'popup_overlay_color' );
+			}
+			return;
+		}
+		$clean = themify_popup_sanitize_css_color( $color );
+		if ( '' === $clean ) {
+			delete_post_meta( $post_id, 'popup_overlay_color' );
+		} elseif ( $clean !== $color ) {
+			update_post_meta( $post_id, 'popup_overlay_color', $clean );
+		}
+	}
+
+	/**
+	 * Remove unsafe CSS meta saved before values were validated.
+	 */
+	public static function cleanup_stored_css_meta() {
+		if ( get_option( 'themify_popup_css_meta_sanitized' ) ) {
+			return;
+		}
+		$ids = get_posts( array(
+			'post_type' => 'themify_popup',
+			'post_status' => 'any',
+			'posts_per_page' => -1,
+			'fields' => 'ids',
+			'no_found_rows' => true,
+		) );
+		foreach ( $ids as $id ) {
+			self::sanitize_saved_meta( $id );
+		}
+		update_option( 'themify_popup_css_meta_sanitized', '1', false );
+	}
 }
 
 /**
@@ -566,11 +647,95 @@ function themify_popup_get( $var, $default = null,$id=null ) {
  * @return string
  */
 function themify_popup_get_custom_css() {
-	$css = str_replace( '%POPUP%', '#themify-popup-' . get_the_id(), themify_popup_get( 'custom_css', '' ) );
-	if ( function_exists( 'themify_sanitize_builder_custom_css' ) ) {
-		return themify_sanitize_builder_custom_css( $css );
+	$css = themify_popup_get( 'custom_css', '' );
+	if ( ! is_string( $css ) || '' === $css ) {
+		return '';
 	}
-	$css = preg_replace( '/<\/style/i', '', $css );
-	$css = preg_replace( '/<script/i', '', $css );
-	return $css;
+	$css = str_replace( '%POPUP%', '#themify-popup-' . (int) get_the_id(), $css );
+	if ( function_exists( 'themify_sanitize_builder_custom_css' ) ) {
+		$css = themify_sanitize_builder_custom_css( $css );
+	}
+	return themify_popup_escape_inline_style( $css );
+}
+
+/**
+ * CSS length. Returns an empty string when the value is not a plain number.
+ *
+ * @param mixed $value Raw meta value.
+ * @return string
+ */
+function themify_popup_css_number( $value ) {
+	if ( is_int( $value ) || is_float( $value ) ) {
+		$value = (string) $value;
+	}
+	if ( ! is_string( $value ) ) {
+		return '';
+	}
+	$value = trim( $value );
+	if ( ! preg_match( '/^(?:\d+\.?\d*|\.\d+)$/', $value ) ) {
+		return '';
+	}
+	$number = (float) $value;
+	if ( ! is_finite( $number ) ) {
+		return '';
+	}
+	$formatted = rtrim( rtrim( sprintf( '%.6F', $number ), '0' ), '.' );
+	return '' === $formatted ? '0' : $formatted;
+}
+
+/**
+ * CSS unit restricted to an allow-list. Returns an empty string when invalid.
+ *
+ * @param mixed $unit    Raw meta value.
+ * @param array $allowed Allowed units.
+ * @return string
+ */
+function themify_popup_css_unit( $unit, $allowed ) {
+	if ( ! is_string( $unit ) ) {
+		return '';
+	}
+	$unit = strtolower( trim( $unit ) );
+	return in_array( $unit, $allowed, true ) ? $unit : '';
+}
+
+/**
+ * Color value safe to place in a stylesheet.
+ * Accepts hex, rgb/rgba/hsl/hsla, and alphabetic color keywords.
+ *
+ * @param mixed $color Raw meta value.
+ * @return string
+ */
+function themify_popup_sanitize_css_color( $color ) {
+	if ( ! is_string( $color ) ) {
+		return '';
+	}
+	$color = trim( $color );
+	if ( '' === $color ) {
+		return '';
+	}
+	if ( preg_match( '/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/', $color ) ) {
+		return $color;
+	}
+	if ( preg_match( '/^[a-zA-Z]{3,30}$/', $color ) ) {
+		return $color;
+	}
+	if ( preg_match( '/^(?:rgb|rgba|hsl|hsla)\([0-9.,%\s\/]+\)$/i', $color ) ) {
+		return $color;
+	}
+	return '';
+}
+
+/**
+ * Keep stylesheet text from closing the surrounding style element.
+ *
+ * @param mixed $css CSS text.
+ * @return string
+ */
+function themify_popup_escape_inline_style( $css ) {
+	if ( ! is_string( $css ) ) {
+		return '';
+	}
+	$css = str_replace( "\0", '', $css );
+	$css = preg_replace( '/<[^>]*>/', '', $css );
+	return str_replace( '<', '', $css );
 }

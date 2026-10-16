@@ -160,6 +160,10 @@ class Themify_Metabox {
 		} 
 
 		if( !empty( $_POST['themify_proper_save'] )) {
+			if ( empty( $_POST['themify_metabox_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['themify_metabox_nonce'] ) ), 'themify_metabox_save' ) ) {
+				return $post_id;
+			}
+
 			foreach( $this->get_meta_boxes() as $meta_box ) {
 				$tabs = $this->get_meta_box_options( $meta_box['id'], $_POST['post_type'] );
 				if( empty( $tabs ) )
@@ -213,6 +217,8 @@ class Themify_Metabox {
 			$new_meta = '';
 		}
 
+		$new_meta = $this->sanitize_field_value( $field, $new_meta );
+
 		// remove empty meta fields from database
 		if ( '' === $new_meta ) {
 			if ( metadata_exists( 'post', $post_id, $field['name'] ) ) {
@@ -220,16 +226,86 @@ class Themify_Metabox {
 			}
 			return;
 		}
-		
-		/* sanitization */
-		if (isset( $field['type'] ) && ($field['type'] === 'textbox' || $field['type'] === 'textarea' ) && ! current_user_can( 'unfiltered_html' )) {
-			$new_meta = wp_kses_data( $new_meta );
-		}
-		
+
 		$old_meta = get_post_meta( $post_id, $field['name'], true );
 		if ( $new_meta !== '' && $new_meta != $old_meta ) {
 			update_post_meta( $post_id, $field['name'], $new_meta );
 		}
+	}
+
+	/**
+	 * Restrict choice, color, and text meta to values that are safe to store.
+	 *
+	 * @param array $field Field config.
+	 * @param mixed $value Raw posted value.
+	 * @return mixed
+	 */
+	protected function sanitize_field_value( $field, $value ) {
+		$type = isset( $field['type'] ) ? $field['type'] : '';
+
+		if ( in_array( $type, array( 'dropdown', 'radio', 'image_radio', 'layout', 'dropdownbutton' ), true ) ) {
+			if ( ! is_scalar( $value ) ) {
+				return '';
+			}
+			$value = (string) wp_unslash( $value );
+			$allowed = $this->get_choice_values( $field );
+			if ( $allowed ) {
+				return in_array( $value, $allowed, true ) ? $value : '';
+			}
+			return sanitize_text_field( $value );
+		}
+
+		if ( 'color' === $type ) {
+			if ( ! is_scalar( $value ) ) {
+				return '';
+			}
+			$color = (string) wp_unslash( $value );
+			if ( function_exists( 'themify_popup_sanitize_css_color' ) ) {
+				return themify_popup_sanitize_css_color( $color );
+			}
+			$color = trim( sanitize_text_field( $color ) );
+			return preg_match( '/^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,30}|(rgb|rgba|hsl|hsla)\([0-9.,%\s\/]+\))$/', $color ) ? $color : '';
+		}
+
+		if ( in_array( $type, array( 'textbox', 'textarea' ), true ) && ! current_user_can( 'unfiltered_html' ) ) {
+			if ( ! is_scalar( $value ) ) {
+				return '';
+			}
+			return wp_kses_data( $value );
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Allowed values for a choice field.
+	 *
+	 * @param array $field Field config.
+	 * @return array
+	 */
+	protected function get_choice_values( $field ) {
+		$type = isset( $field['type'] ) ? $field['type'] : '';
+		$options = array();
+		if ( 'dropdownbutton' === $type && isset( $field['states'] ) ) {
+			$options = $field['states'];
+		} elseif ( isset( $field['meta'] ) ) {
+			$options = $field['meta'];
+		}
+		$first = is_array( $options ) ? reset( $options ) : null;
+		$is_option_list = is_array( $first ) && ( isset( $first['value'] ) || isset( $first['name'] ) );
+		if ( ! $is_option_list && is_callable( $options ) ) {
+			$options = call_user_func( $options );
+		}
+		if ( ! is_array( $options ) ) {
+			return array();
+		}
+		$allowed = array();
+		foreach ( $options as $option ) {
+			if ( is_array( $option ) && isset( $option['value'] ) && is_scalar( $option['value'] ) ) {
+				$allowed[] = (string) $option['value'];
+			}
+		}
+		return $allowed;
 	}
 
 	function render( $post, $metabox ) {
@@ -270,6 +346,11 @@ class Themify_Metabox {
 			}
 			echo '</ul>';
 			echo '<div class="ilc-btabs themify-tabs-body">';
+			static $themify_metabox_nonce_sent = false;
+			if ( ! $themify_metabox_nonce_sent ) {
+				wp_nonce_field( 'themify_metabox_save', 'themify_metabox_nonce', false );
+				$themify_metabox_nonce_sent = true;
+			}
 			foreach( $tabs as $tab ) {
 				if( isset( $tab['display_callback'] ) && is_callable( $tab['display_callback'] ) ) {
 					$show = (bool) call_user_func( $tab['display_callback'], $tab );
