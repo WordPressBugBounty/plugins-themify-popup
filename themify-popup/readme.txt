@@ -3,8 +3,8 @@ Contributors: themifyme
 Plugin Name: Themify Popup
 Tags: popup, modal, lightbox, marketing, notification
 Requires at least: 4.5
-Tested up to: 7.1.2
-Stable tag: 1.4.8
+Tested up to: 7.1.3
+Stable tag: 1.4.9
 License: GPL v2
 License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 
@@ -64,3 +64,8 @@ Please visit plugin's installation guide page: https://themify.me/docs/popup-doc
 == Changelog ==
 
 The changelog is located at: https://themify.org/changelogs/themify-popup.txt
+
+== Frequently Asked Questions ==
+= Where do I report security bugs found in this plugin? =
+
+Please report security bugs found in the source code of the Themify Popup plugin through the [Patchstack Vulnerability Disclosure  Program](https://patchstack.com/database/vdp/9e5fbd94-de4f-4f4e-b35f-3f007d1ba1a9). The Patchstack team will assist you with verification, CVE assignment, and notify the developers of this plugin.

@@ -1,3 +1,3 @@
 <?php
 
-return array('classic-center.zip','classic-center-2.zip','classic-center-3.zip','classic-center-4.zip','fullscreen.zip','slide-out-bottom-center.zip','slide-out-bottom-right.zip');
+return array('classic-center.txt','classic-center-2.txt','classic-center-3.txt','classic-center-4.txt','fullscreen.txt','slide-out-bottom-center.txt','slide-out-bottom-right.txt');
